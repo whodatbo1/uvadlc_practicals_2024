@@ -6,6 +6,7 @@ Experiment with different convolution types
 
 import torch
 import numpy as np
+import os
 np.random.seed(42)  # for reproducibility
 torch.backends.cudnn.deterministic = True
 torch.manual_seed(42)
@@ -360,3 +361,12 @@ if __name__ == '__main__':
     print('mean: {:.4f} std: {:.4f} for validation'.format(mean_val, std_val))
     print('Results for test dataset', results_test)
     print('mean: {:.4f} std: {:.4f} for test'.format(mean_test, std_test))
+
+    # Save the results to a file
+    filename = f'results.csv'
+    if not os.path.exists(filename):
+        # Create csv file and add headers
+        with open(filename, 'w') as f:
+            f.write(f'conv_type,net_type,mean_val,std_val,mean_test,std_test\n')
+    with open(filename, 'a') as f:
+        f.write(f'{conv_type},{net_type},{mean_val},{std_val},{mean_test},{std_test}\n')
