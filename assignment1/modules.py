@@ -51,9 +51,42 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        self.in_features = in_features
+        self.out_features = out_features
+
+        self.__initialize_parameters(input_layer)
+        self.__initialize_gradients()
+
+        assert self.params['weight'].shape == (self.out_features, self.in_features)
+        assert self.params['bias'].shape == (1, self.out_features)
+
         #######################
         # END OF YOUR CODE    #
         #######################
+
+    # Initialize the weights and biases
+    # Assume we are using the fan_in method for the initialization
+    # Inspiration has been taken from the Pytorch implementation at https://github.com/pytorch/pytorch/blob/0adb5843766092fba584791af76383125fd0d01c/torch/nn/init.py#L389
+    # And the paper: https://arxiv.org/pdf/1502.01852
+    def __initialize_parameters(self, input_layer=False):
+        if input_layer:
+            weight_std = np.sqrt(1 / self.in_features)
+        else:
+            weight_std = np.sqrt(2 / self.in_features)
+
+        weights = np.random.randn(self.out_features, self.in_features) * weight_std
+        assert weights.shape == (self.out_features, self.in_features)
+
+        biases = np.zeros((1, self.out_features))
+        assert biases.shape == (1, self.out_features)
+
+        self.params['weight'] = weights
+        self.params['bias'] = biases
+
+    # Initialize the gradients to 0
+    def __initialize_gradients(self):
+        self.grads['weight'] = np.zeros((self.out_features, self.in_features))
+        self.grads['bias'] = np.zeros((1, self.out_features))
 
     def forward(self, x):
         """
@@ -73,6 +106,10 @@ class LinearModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+
+        out = x @ self.params['weight'].T + self.params['bias']
+
+        self.x_cache = x
 
         #######################
         # END OF YOUR CODE    #
@@ -98,6 +135,11 @@ class LinearModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        self.grads['weight'] = dout.T @ self.x_cache
+        self.grads['bias'] = np.sum(dout, axis=0)
+
+        dx = dout @ self.params['weight']
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -119,13 +161,16 @@ class LinearModule(object):
         # END OF YOUR CODE    #
         #######################
 
+    def update_parameters(self, lr):
+        self.params['weight'] -= lr * self.grads['weight']
+        self.params['bias'] -= lr * self.grads['bias']
 
 class ELUModule(object):
     """
     ELU activation module.
     """
 
-    def __init__(self, alpha):
+    def __init__(self, alpha=1.0):
         self.alpha = alpha
 
     def forward(self, x):
@@ -146,6 +191,12 @@ class ELUModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+
+        # Apply the ELU activation function element-wise
+        out = np.where(x >= 0, x, self.alpha * (np.exp(x) - 1))
+
+        # Cache the input for backward pass
+        self.x_cache = x
 
         #######################
         # END OF YOUR CODE    #
@@ -169,6 +220,9 @@ class ELUModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        # If the input was >= 0, the derivative is 1, otherwise it's alpha * exp(x)
+        dx = np.where(self.x_cache >= 0, dout, dout * self.alpha * np.exp(self.x_cache))
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -185,10 +239,13 @@ class ELUModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        self.x_cache = None
         #######################
         # END OF YOUR CODE    #
         #######################
+
+    def update_parameters(self, lr):
+        pass
 
 
 class SoftMaxModule(object):
@@ -215,6 +272,18 @@ class SoftMaxModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        # Use the Max Trick to stabilize the computation
+        x_max = np.max(x, axis=1, keepdims=True)
+        x_exp = np.exp(x - x_max)
+        sum_c = np.sum(x_exp, axis=1, keepdims=True)
+        out = x_exp / sum_c
+
+        assert out.shape == x.shape
+
+        # Cache the derivative of the softmax function for backward pass
+        self.x_cache = x
+        self.out_cache = out
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -236,12 +305,29 @@ class SoftMaxModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+        
+        assert dout.shape == self.out_cache.shape
+
+        # Naive implementation
+        # We compute the Jacobian for each input in the batch
+        batch_size = dout.shape[0]
+        data_dim = self.x_cache.shape[1]
+        dx = np.zeros((batch_size, data_dim, data_dim)) # NxDxD
+        for i in range(batch_size):
+            # Non-diagonal entries
+            outer = - np.outer(self.out_cache[i], self.out_cache[i])
+            dx[i] = outer
+            # The derivative for diagonal entries has an extra term SM(x)_ii
+            diag = np.diag(self.out_cache[i])
+            dx[i] += diag
+
+        dL_dx = np.einsum('nij,nj->ni', dx, dout)
 
         #######################
         # END OF YOUR CODE    #
         #######################
 
-        return dx
+        return dL_dx
 
     def clear_cache(self):
         """
@@ -254,11 +340,15 @@ class SoftMaxModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        self.dsm_dx_cache = None
+
         #######################
         # END OF YOUR CODE    #
         #######################
 
+    def update_parameters(self, lr):
+        pass
 
 class CrossEntropyModule(object):
     """
@@ -281,6 +371,13 @@ class CrossEntropyModule(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+
+        labels = self.__get_labels(x, y)
+
+        out = -np.sum(labels * np.log(x)) / x.shape[0]
+
+        self.labels = labels
+        self.out = out
 
         #######################
         # END OF YOUR CODE    #
@@ -305,8 +402,22 @@ class CrossEntropyModule(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        labels = self.__get_labels(x, y)
+        
+        s = labels.shape[0]
+        dx = - (labels / x) / s
+
         #######################
         # END OF YOUR CODE    #
         #######################
 
         return dx
+    
+    # Create a one-hot matrix of label
+    def __get_labels(self, x, y):
+        labels = np.zeros_like(x)
+        labels[np.arange(y.shape[0]), y] = 1
+        return labels
+    
+    def update_parameters(self, lr):
+        pass

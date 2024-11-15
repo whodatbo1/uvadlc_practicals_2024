@@ -1,0 +1,8 @@
+**/data
+**/assets
+**/logs
+**/checkpoints
+**/results
+**/__pycache__
+**/.DS_Store
+*.zip

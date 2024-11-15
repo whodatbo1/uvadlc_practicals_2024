@@ -32,7 +32,7 @@ import cifar10_utils
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
+import matplotlib.pyplot as plt
 
 def accuracy(predictions, targets):
     """
@@ -55,6 +55,12 @@ def accuracy(predictions, targets):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+
+    labels = torch.zeros_like(predictions)
+    labels[torch.arange(targets.shape[0]), targets] = 1
+    predictions = torch.argmax(predictions, dim=1)
+    targets = torch.argmax(labels, dim=1)
+    accuracy = torch.mean((predictions == targets).float())
 
     #######################
     # END OF YOUR CODE    #
@@ -83,6 +89,14 @@ def evaluate_model(model, data_loader):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+
+    avg_accuracy = 0
+    for batch in data_loader:
+        x, y = batch
+        x = x.reshape(-1, np.prod(x.shape[1:]))
+        predictions = model(x)
+        avg_accuracy += accuracy(predictions, y)
+    avg_accuracy /= len(data_loader)
 
     #######################
     # END OF YOUR CODE    #
@@ -145,16 +159,52 @@ def train(hidden_dims, lr, use_batch_norm, batch_size, epochs, seed, data_dir):
     # PUT YOUR CODE HERE  #
     #######################
 
+    train_loader = cifar10_loader['train']
+    test_loader = cifar10_loader['test']
+    val_loader = cifar10_loader['validation']
+
     # TODO: Initialize model and loss module
-    model = ...
-    loss_module = ...
+    n_inputs = 32*32*3
+    n_classes = 10
+    model = MLP(n_inputs=n_inputs, n_hidden=hidden_dims, n_classes=n_classes, use_batch_norm=use_batch_norm)
+    loss_module = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=lr)
     # TODO: Training loop including validation
     # TODO: Do optimization with the simple SGD optimizer
-    val_accuracies = ...
+    val_accuracies = []
     # TODO: Test best model
-    test_accuracy = ...
+    test_accuracy = 0
     # TODO: Add any information you might want to save for plotting
-    logging_dict = ...
+    logging_dict = {}
+    logging_dict['loss'] = []
+    logging_dict['val_accuracy'] = []
+
+    initial_val_accuracy = evaluate_model(model, val_loader)
+    logging_dict['val_accuracy'].append(initial_val_accuracy)
+
+    print(f'use_batch_norm: {use_batch_norm}')
+
+    for epoch in range(1, epochs + 1):
+        epoch_loss = 0
+        model.train()
+        for batch in train_loader:
+            x, y = batch
+            x = x.reshape(-1, n_inputs)
+            predictions = model(x)
+            loss = loss_module(predictions, y)
+            epoch_loss += loss
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        model.eval()
+        epoch_loss /= len(train_loader)
+        logging_dict['loss'].append(epoch_loss)
+        print(f'Epoch {epoch}: loss: {epoch_loss}')
+        val_accuracies.append(evaluate_model(model, val_loader))
+        logging_dict['val_accuracy'].append(val_accuracies[-1])
+
+    test_accuracy = evaluate_model(model, test_loader)
+    logging_dict['test_accuracy'] = test_accuracy
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -189,5 +239,28 @@ if __name__ == '__main__':
     args = parser.parse_args()
     kwargs = vars(args)
 
-    train(**kwargs)
+    model, val_accuracies, test_accuracy, logging_dict = train(**kwargs)
+    print('val_accuracies', val_accuracies)
+    print('test_accuracy', test_accuracy)
+    print('logging_dict', logging_dict)
+
+    losses = [loss.detach().numpy() for loss in logging_dict['loss']]
+
+    plt.figure()
+    plt.plot(losses, label='loss')
+    plt.grid(True)
+    plt.legend()
+    plt.title('Pytorch model: Loss for each epoch for model with test accuracy {:.2f}'.format(test_accuracy), wrap=True)
+    plt.savefig('loss_pytorch.png')
+    plt.show()
+
+    val_accuracies = [acc.detach().numpy() for acc in logging_dict['val_accuracy']]
+
+    plt.figure()
+    plt.plot(val_accuracies, label='val_accuracy')
+    plt.grid(True)
+    plt.legend()
+    plt.title('Pytorch model: Validation accuracy for each epoch for model with test accuracy {:.2f}'.format(test_accuracy), wrap=True)
+    plt.savefig('val_accuracy_pytorch.png')
+    plt.show()
     # Feel free to add any additional functions, such as plotting of the loss curve here

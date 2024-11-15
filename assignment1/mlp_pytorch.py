@@ -59,7 +59,20 @@ class MLP(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        super().__init__()
+        layers = []
+        for layer_idx, layer_size in enumerate(n_hidden):
+            layer = nn.Linear(n_inputs, layer_size, bias=False)
+            layers.append(layer)
+            if use_batch_norm:
+                layers.append(nn.BatchNorm1d(layer_size))
+            layers.append(nn.ELU())
+            n_inputs = layer_size
+
+        layers.append(nn.Linear(n_inputs, n_classes))
+        layers.append(nn.ELU())
+
+        self.layers = nn.ModuleList(layers)
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -81,12 +94,14 @@ class MLP(nn.Module):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
+        for layer in self.layers:
+            x = layer(x)
 
         #######################
         # END OF YOUR CODE    #
         #######################
 
-        return out
+        return x
 
     @property
     def device(self):

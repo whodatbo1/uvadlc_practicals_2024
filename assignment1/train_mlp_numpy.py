@@ -29,7 +29,7 @@ from copy import deepcopy
 from mlp_numpy import MLP
 from modules import CrossEntropyModule
 import cifar10_utils
-
+import matplotlib.pyplot as plt
 import torch
 
 
@@ -53,6 +53,8 @@ def accuracy(predictions, targets):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+
+    accuracy = np.mean(predictions.argmax(axis=1) == targets)
 
     #######################
     # END OF YOUR CODE    #
@@ -81,6 +83,14 @@ def evaluate_model(model, data_loader):
     #######################
     # PUT YOUR CODE HERE  #
     #######################
+
+    avg_accuracy = 0
+    for batch in data_loader:
+        x, y = batch
+        x = x.reshape(-1, np.prod(x.shape[1:]))
+        predictions = model.forward(x)
+        avg_accuracy += accuracy(predictions, y)
+    avg_accuracy /= len(data_loader)
 
     #######################
     # END OF YOUR CODE    #
@@ -134,15 +144,49 @@ def train(hidden_dims, lr, batch_size, epochs, seed, data_dir):
     # PUT YOUR CODE HERE  #
     #######################
 
-    # TODO: Initialize model and loss module
-    model = ...
-    loss_module = ...
-    # TODO: Training loop including validation
-    val_accuracies = ...
-    # TODO: Test best model
-    test_accuracy = ...
-    # TODO: Add any information you might want to save for plotting
-    logging_dict = ...
+    train_loader = cifar10_loader['train']
+    test_loader = cifar10_loader['test']
+    val_loader = cifar10_loader['validation']
+
+    # Initialize model and loss module
+    n_inputs = 32*32*3
+    n_hidden = hidden_dims
+    n_classes = 10
+
+    model = MLP(n_inputs=n_inputs, n_hidden=n_hidden, n_classes=n_classes) 
+    loss_module = CrossEntropyModule()
+    # Training loop including validation
+    val_accuracies = []
+    # Test best model
+    test_accuracy = 0
+    # Add any information you might want to save for plotting
+    logging_dict = {}
+    logging_dict['loss'] = []
+    logging_dict['val_accuracy'] = []
+
+    initial_val_accuracy = evaluate_model(model, val_loader)
+    logging_dict['val_accuracy'].append(initial_val_accuracy)
+
+    for epoch in range(1, epochs + 1):
+        epoch_loss = 0
+        for batch in train_loader:
+            x, y = batch
+            x = x.reshape(-1, n_inputs)
+            predictions = model.forward(x)
+            loss = loss_module.forward(predictions, y)
+            epoch_loss += loss
+            dout = loss_module.backward(predictions, y)
+            model.backward(dout)
+            model.update_parameters(lr)
+        epoch_loss /= len(train_loader)
+        logging_dict['loss'].append(epoch_loss)
+        print(f'Epoch {epoch}: loss: {epoch_loss}')
+        val_accuracies.append(evaluate_model(model, val_loader))
+        logging_dict['val_accuracy'].append(val_accuracies[-1])
+    
+    test_accuracy = evaluate_model(model, test_loader)
+    logging_dict['test_accuracy'] = test_accuracy
+
     #######################
     # END OF YOUR CODE    #
     #######################
@@ -175,5 +219,24 @@ if __name__ == '__main__':
     args = parser.parse_args()
     kwargs = vars(args)
 
-    train(**kwargs)
+    model, val_accuracies, test_accuracy, logging_dict = train(**kwargs)
+    print('val_accuracies', val_accuracies)
+    print('test_accuracy', test_accuracy)
+    print('logging_dict', logging_dict)
+
+    plt.figure()
+    plt.plot(logging_dict['loss'], label='loss')
+    plt.legend()
+    plt.title('Numpy model: Loss for each epoch for model with test accuracy {:.2f}'.format(test_accuracy), wrap=True)
+    plt.grid(True)
+    plt.savefig('loss_numpy.png')
+    plt.show()
+
+    plt.figure()
+    plt.plot(logging_dict['val_accuracy'], label='val_accuracy')
+    plt.legend()
+    plt.title('Numpy model: Validation accuracy for each epoch for model with test accuracy {:.2f}'.format(test_accuracy), wrap=True)
+    plt.grid(True)
+    plt.savefig('val_accuracy_numpy.png')
+    plt.show()
     # Feel free to add any additional functions, such as plotting of the loss curve here

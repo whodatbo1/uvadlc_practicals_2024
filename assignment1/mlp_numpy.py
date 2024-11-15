@@ -52,7 +52,19 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+        self.layers = []
+        for layer_idx, layer_size in enumerate(n_hidden):
+            if layer_idx == 0:
+                self.layers.append(LinearModule(n_inputs, layer_size, input_layer=True))
+            else:
+                self.layers.append(LinearModule(n_inputs, layer_size))
+            self.layers.append(ELUModule())
+            n_inputs = layer_size
+
+        self.layers.append(LinearModule(n_inputs, n_classes))
+        self.layers.append(ELUModule())
+        self.layers.append(SoftMaxModule())
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -75,6 +87,10 @@ class MLP(object):
         # PUT YOUR CODE HERE  #
         #######################
 
+        out = x
+        for layer in self.layers:
+            out = layer.forward(out)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -95,7 +111,11 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        # dout = dout @ self.layers[-1].params['weight'].T
+        for layer in reversed(self.layers):
+            dout = layer.backward(dout)
+
         #######################
         # END OF YOUR CODE    #
         #######################
@@ -112,7 +132,14 @@ class MLP(object):
         #######################
         # PUT YOUR CODE HERE  #
         #######################
-        pass
+
+        for layer in self.layers:
+            layer.clear_cache()
+
         #######################
         # END OF YOUR CODE    #
         #######################
+
+    def update_parameters(self, lr):
+        for layer in self.layers:
+            layer.update_parameters(lr)

@@ -15,7 +15,7 @@
 ################################################################################
 import unittest
 import numpy as np
-
+import torch
 from modules import LinearModule, SoftMaxModule, CrossEntropyModule
 from modules import ELUModule
 
@@ -77,12 +77,52 @@ class TestLosses(unittest.TestCase):
             X = np.random.uniform(low=1e-2, high=1.0, size=(N, C))
             X /= X.sum(axis=1, keepdims=True)
 
-            _ = CrossEntropyModule().forward(X, y)
+            forward_our = CrossEntropyModule().forward(X, y)
             grads = CrossEntropyModule().backward(X, y)
 
             f = lambda _: CrossEntropyModule().forward(X, y)
             grads_num = eval_numerical_gradient(f, X, verbose=False, h=1e-5)
+            
             self.assertLess(rel_error(grads_num, grads), rel_error_max)
+    
+    # def test_custom_loss(self):
+    #     # N = np.random.choice(range(1, 100))
+    #     # C = np.random.choice(range(1, 10))
+    #     N = 2
+    #     C = 3
+    #     y = np.arange(N)
+    #     # y = np.random.randint(C, size=(N,))
+    #     X = np.random.uniform(low=1e-2, high=1.0, size=(N, C))
+    #     X /= X.sum(axis=1, keepdims=True)
+
+    #     X = np.array([[1.4, 0.4, 1.1, 0.1, 2.3]])
+    #     y = np.array([0])
+
+    #     X_softmax = torch.nn.functional.softmax(torch.from_numpy(X), dim=1).numpy()
+    #     forward_our = CrossEntropyModule().forward(X_softmax, y)
+    #     grads_our = CrossEntropyModule().backward(X_softmax, y)
+
+    #     # Compare to pytorch
+    #     pytorch_loss = torch.nn.CrossEntropyLoss(reduction='mean')
+    #     X_torch = torch.from_numpy(X)
+    #     y_torch = torch.from_numpy(y)
+    #     X_torch.requires_grad = True
+    #     y_torch.requires_grad = False
+    #     forward_pytorch = pytorch_loss(X_torch, y_torch)
+    #     grads_pytorch = torch.autograd.grad(forward_pytorch, X_torch)[0].numpy()
+
+    #     forward_pytorch = forward_pytorch.detach().numpy()
+
+    #     rel_error_max = 1e-5
+    #     print(f'forward_our: {forward_our}')
+    #     print(f'forward_pytorch: {forward_pytorch}')
+    #     print(f'rel_error: {rel_error(forward_our, forward_pytorch)}')
+    #     self.assertLess(rel_error(forward_our, forward_pytorch), rel_error_max)
+
+    #     print(f'grads_our: {grads_our}')
+    #     print(f'grads_pytorch: {grads_pytorch}')
+    #     print(f'rel_error: {rel_error(grads_our, grads_pytorch)}')
+    #     self.assertLess(rel_error(grads_our, grads_pytorch), rel_error_max)
 
 
 class TestLayers(unittest.TestCase):
@@ -137,11 +177,18 @@ class TestLayers(unittest.TestCase):
             x = np.random.randn(N, D)
             dout = np.random.randn(*x.shape)
 
+
             layer = SoftMaxModule()
 
             _ = layer.forward(x)
             dx = layer.backward(dout)
             dx_num = eval_numerical_gradient_array(lambda xx: layer.forward(xx), x, dout)
+
+            # print(f'I AM HERE dx shape: {dx.shape}')
+            # print(f'I AM HERE dx_num shape: {dx_num.shape}')
+
+            # print(f'dx: {dx}')
+            # print(f'dx_num: {dx_num}')
 
             self.assertLess(rel_error(dx, dx_num), rel_error_max)
 
