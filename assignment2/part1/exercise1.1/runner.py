@@ -50,41 +50,34 @@ def main():
     script_path = "net.py"
     
     # Define different parameter sets to run
+    common_params = {
+        "filename": "results_net2.csv",
+        "net_type": "Net2",
+    }
     parameter_sets = [
         {
             "conv_type": "valid",
-            "epochs": 1,
-            "n_repeat": 2,
         },
         {
             "conv_type": "sconv",
-            "epochs": 1,
-            "n_repeat": 2,
         },
         {
             "conv_type": "fconv",
-            "epochs": 1,
-            "n_repeat": 2,
         },
         {
             "conv_type": "circular",
-            "epochs": 1,
-            "n_repeat": 2,
         },
         {
             "conv_type": "reflect",
-            "epochs": 1,
-            "n_repeat": 2,
         },
         {
             "conv_type": "replicate",
-            "epochs": 1,
-            "n_repeat": 2,
         }
     ]
     
     # Run the script with each parameter set
     for i, params in enumerate(parameter_sets, 1):
+        params.update(common_params)
         print(f"\nRunning iteration {i}:")
         run_script_with_params(script_path, params)
 

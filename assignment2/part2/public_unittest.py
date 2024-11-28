@@ -18,8 +18,16 @@ class MockConfig:
 
 
 class TestCausalSelfAttention(unittest.TestCase):
-    def test_output_shape(self):
-        config = MockConfig()
+    def test_output_shape_no_rotary(self):
+        config = MockConfig(n_embd=8, n_head=2, abs_emb=True)
+        module = CausalSelfAttention(config)
+        B, T, C = 2, 10, config.n_embd
+        x = torch.randn(B, T, C)
+        output = module(x)
+        self.assertEqual(output.shape, (B, T, C))
+
+    def test_output_shape_rotary(self):
+        config = MockConfig(abs_emb=False)
         module = CausalSelfAttention(config)
         B, T, C = 2, 10, config.n_embd
         x = torch.randn(B, T, C)
@@ -47,7 +55,6 @@ class TestCausalSelfAttention(unittest.TestCase):
         self.assertEqual(xk_rot.shape, xk.shape)
         self.assertTrue(torch.allclose(xq.norm(dim=-1), xq_rot.norm(dim=-1), atol=1e-5))
         self.assertTrue(torch.allclose(xk.norm(dim=-1), xk_rot.norm(dim=-1), atol=1e-5))
-
 
     def test_gradient_flow(self):
         config = MockConfig()

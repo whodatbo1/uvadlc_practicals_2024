@@ -111,6 +111,7 @@ if __name__ == '__main__':
                         help="training the network with n different initializations")
     parser.add_argument("--epochs", type=int, default=50, help="number of epochs")
     parser.add_argument("--batch_size", type=int, default=200, help="size of each image batch")
+    parser.add_argument("--filename", type=str, default='results.csv', help="filename for results")
 
     opt = parser.parse_args()
     print(opt)
@@ -179,6 +180,14 @@ if __name__ == '__main__':
     results_val = {}  # dict for validation set
     results_test = {}  # dict for  testset
 
+    if not torch.backends.mps.is_available():
+        if not torch.backends.mps.is_built():
+            print("MPS not available because the current PyTorch install was not "
+                "built with MPS enabled.")
+        else:
+            print("MPS not available because the current MacOS version is not 12.3+ "
+                "and/or you do not have an MPS-enabled device on this machine.")
+    device = torch.device("mps")
     for m in range(opt.n_repeat):
 
         print('Round  :{:4d}'.format(m + 1))
@@ -191,7 +200,8 @@ if __name__ == '__main__':
         net = Net(conv_type=conv_type, net_type=net_type)
         if use_gpu:
             net = net.cuda()
-        print(net)
+        print(f"Using device: {device}")
+        net.to(device)
         param_size = 0
         for param in net.parameters():
             param_size += param.nelement() * param.element_size()
@@ -236,7 +246,7 @@ if __name__ == '__main__':
                         images = Variable(images.cuda())
                         label_class = Variable(label_class.cuda())
                     else:
-                        images, label_class = Variable(images), Variable(label_class)
+                        images, label_class = Variable(images.to(device)), Variable(label_class.to(device))
 
                     optimizer.zero_grad()
                     outputs_class = net(images)
@@ -272,6 +282,8 @@ if __name__ == '__main__':
                     if use_gpu:
                         images = Variable(images.cuda())
                         label_class = Variable(label_class.cuda())
+                    else:
+                        images, label_class = Variable(images.to(device)), Variable(label_class.to(device))
 
                     outputs_class = net(images)
 
@@ -322,6 +334,8 @@ if __name__ == '__main__':
             if use_gpu:
                 images = Variable(images.cuda())
                 label_class = Variable(label_class.cuda())
+            else:
+                images, label_class = Variable(images.to(device)), Variable(label_class.to(device))
 
             outputs_class = net(images)
 
@@ -363,10 +377,10 @@ if __name__ == '__main__':
     print('mean: {:.4f} std: {:.4f} for test'.format(mean_test, std_test))
 
     # Save the results to a file
-    filename = f'results.csv'
-    if not os.path.exists(filename):
+    if not os.path.exists(opt.filename):
         # Create csv file and add headers
-        with open(filename, 'w') as f:
+        with open(opt.filename, 'w') as f:
             f.write(f'conv_type,net_type,mean_val,std_val,mean_test,std_test\n')
-    with open(filename, 'a') as f:
+    # Write to new line
+    with open(opt.filename, 'a') as f:
         f.write(f'{conv_type},{net_type},{mean_val},{std_val},{mean_test},{std_test}\n')
