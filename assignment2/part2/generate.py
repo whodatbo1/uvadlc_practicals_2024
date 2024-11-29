@@ -120,12 +120,15 @@ if __name__ == "__main__":
     cfg = argparse.Namespace(**combined_cfg)
     gpt_model = GPT(cfg)
 
+    device = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
+
     # Setup dataset and model
     dataset = TextDataset(args, args.txt_file, args.block_size, CharTokenizer)
-    model = GPTLightningModule(cfg, gpt_model, dataset)
+    model = GPTLightningModule(cfg, gpt_model, dataset).to(device)
     model.load_state_dict(state_dict['state_dict'])
 
     device = next(model.parameters()).device
+    print(f'device: {device}')
 
     generate(
         prompt=args.prompt,

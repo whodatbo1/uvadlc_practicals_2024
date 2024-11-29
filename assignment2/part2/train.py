@@ -115,7 +115,7 @@ class GPTLightningModule(pl.LightningModule):
         else:
             context = 'Yesterday I went ' if prompt == '' else prompt
             x = torch.tensor(self.train_dataset.tokenizer.encode(context), dtype=torch.long)[None,...].to(self.config.device)
-            y = self.model.generate(x, n_steps, temperature=1.0, do_sample=do_sample, top_k=top_k)[0]
+            y = self.model.generate(x, n_steps, temperature=1.0, do_sample=do_sample)[0]
             decoded_outputs = self.train_dataset.tokenizer.decode(y)
         return decoded_outputs
 
@@ -136,6 +136,7 @@ class GPTLightningModule(pl.LightningModule):
             drop_last=True, 
             pin_memory=True,
             num_workers=self.config.num_workers,
+            persistent_workers=True,
         )
         return train_loader
 
@@ -165,8 +166,11 @@ def train(args):
         cfg.abs_emb = args.abs_emb
         gpt_model = GPT(config=cfg)
 
+    gpt_model = gpt_model.to(args.device)
     # Assuming `model` and `train_dataset` are defined and `config` is your configuration object
-    lightning_model = GPTLightningModule(args, gpt_model, dataset)
+    print(f'args.device: {args.device}')
+    lightning_model = GPTLightningModule(args, gpt_model, dataset).to(args.device)
+    print(f'lightning_model.device: {lightning_model.device}')
 
     # Setup logger
     logger = TensorBoardLogger(args.log_dir, name=args.model_type)
@@ -197,5 +201,6 @@ def train(args):
 if __name__ == "__main__":
     args = get_config()
     args.device = ("cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")) 
+    print(f'args.device: {args.device}')
 
     train(args=args)

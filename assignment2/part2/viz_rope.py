@@ -5,7 +5,7 @@ def plot_2_dim_rotations(theta):
     torch.manual_seed(42)
     W = torch.randn(2, 2)
     x = torch.randn(2)
-    iterations = 64
+    iterations = 10
     xs = torch.zeros(iterations, 2)
     for m in range(iterations):
         scaled_theta = theta * m
@@ -29,5 +29,5 @@ def plot_2_dim_rotations(theta):
     plt.tight_layout()
     plt.show()
 
-plot_2_dim_rotations(torch.tensor(torch.pi / 64))
+plot_2_dim_rotations(torch.tensor(torch.pi / 8))
 
