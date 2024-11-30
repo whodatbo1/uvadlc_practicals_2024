@@ -42,11 +42,8 @@ class RMSNorm(nn.Module):
     def forward(self, x):
         # Compute the norm of the input tensor and divide by the norm
         # Scale the normalized tensor by the learned weight parameter
-        d = x.shape[-1]
-        norm = torch.sqrt((x ** 2).sum(dim=-1) / d + self.eps)
-        norm = torch.repeat_interleave(norm, d, dim=-1).view(x.shape)
-        output = x * self.weight
-        output = output / norm
+        norm = torch.sqrt(torch.mean(x ** 2, dim=-1, keepdim=True) + self.eps)
+        output = x / norm * self.weight
         return output
 
 class CausalSelfAttention(nn.Module):
@@ -168,7 +165,7 @@ class CausalSelfAttention(nn.Module):
         # Mask the calculated attention weights with the mask parameter.
 
         if self.use_flash_attn:
-            y = ...
+            y = F.scaled_dot_product_attention(q, k, v, attn_mask=self.mask[:,:,:T,:T], dropout_p=self.attn_dropout.p)
         else:
             # Compute attention scores
             att = q @ k.transpose(-2, -1)  / math.sqrt(C)
@@ -488,42 +485,44 @@ class GPT(nn.Module):
             torch.LongTensor: The tensor of token indices including the original and the newly generated 
                                 tokens, with shape (batch size, sequence length + max_new_tokens).
         """
-        # assert not (top_k and top_p), "You can only use one of top_k or top_p sampling"
-        # device = idx.device
-        # for _ in range(max_new_tokens):
-        #     # if the sequence context is growing too long we must crop it at block_size
-        #     idx_cond = idx if idx.size(1) <= self.block_size else idx[:, -self.block_size:]
+        assert not (top_k and top_p), "You can only use one of top_k or top_p sampling"
+        device = idx.device
+        for _ in range(max_new_tokens):
+            # if the sequence context is growing too long we must crop it at block_size
+            idx_cond = idx if idx.size(1) <= self.block_size else idx[:, -self.block_size:]
 
-        #     # forward the model to get the logits for the index in the sequence
-        #     # pluck the logits at the final step and scale by desired temperature
-        #     logits = self.forward(idx_cond)
-        #     idx_next = 0
-            # if not do_sample:
-            #     # take the most likely token
-            #     idx_next = logits[:, -1].argmax(dim=-1)
-            # else:
-            #     # pluck the logits at the final step and scale by desired temperature
-            #     logits = logits[:, -1] / temperature
+            # forward the model to get the logits for the index in the sequence
+            # pluck the logits at the final step and scale by desired temperature
+            logits = self.forward(idx_cond)
+            idx_next = 0
+            if not do_sample:
+                # take the most likely token
+                idx_next = logits[:, -1].argmax(dim=-1)
+            else:
+                # pluck the logits at the final step and scale by desired temperature
+                logits = logits[:, -1] / temperature
 
-            #     # apply softmax to convert logits to (normalized) probabilities
-            #     probs = F.softmax(logits, dim=-1)
+                # apply softmax to convert logits to (normalized) probabilities
+                probs = F.softmax(logits, dim=-1)
 
-            #     # optionally only consider top-k logits for sampling. 
-            #     if top_k is not None:
-            #         top_k = min(top_k, logits.size(-1))
-            #         probs = probs.topk(top_k, dim=-1)
+                # optionally only consider top-k logits for sampling. 
+                if top_k is not None:
+                    top_k = min(top_k, logits.size(-1))
+                    probs = probs.topk(top_k, dim=-1)
                 
-            #     # optionally apply top-p sampling
-            #     if top_p is not None:
-            #         sorted_probs, sorted_indices = probs.sort(dim=-1, descending=True)
-            #         cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-            #         sorted_probs = torch.cat([torch.tensor([[1.]], device=device), sorted_probs[:, 1:]], dim=-1)
-            #         mask = sorted_probs > top_p
-            #         sorted_probs = sorted_probs.masked_fill(mask, 0)
-            #         sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
-            #         probs = torch.zeros_like(probs).scatter_(-1, sorted_indices, sorted_probs)
+                # optionally apply top-p sampling
+                if top_p is not None:
+                    sorted_probs, sorted_indices = probs.sort(dim=-1, descending=True)
+                    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+                    mask = cumulative_probs > top_p
+                    sorted_probs = sorted_probs.masked_fill(mask, 0)
+                    sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
+                    probs = torch.zeros_like(probs).scatter_(-1, sorted_indices, sorted_probs)
+
+                # sample from the distribution
+                idx_next = torch.multinomial(probs, num_samples=1)
             
             # append sampled index to the running sequence and continue
-            # idx = torch.cat((idx, idx_next), dim=1)
+            idx = torch.cat((idx, idx_next), dim=1)
 
         return idx
