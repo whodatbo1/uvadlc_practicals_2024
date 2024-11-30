@@ -520,9 +520,9 @@ class GPT(nn.Module):
                     probs = torch.zeros_like(probs).scatter_(-1, sorted_indices, sorted_probs)
 
                 # sample from the distribution
-                idx_next = torch.multinomial(probs, num_samples=1)
+                # idx_next = torch.multinomial(probs, num_samples=1)
             
             # append sampled index to the running sequence and continue
-            idx = torch.cat((idx, idx_next), dim=1)
+            # idx = torch.cat((idx, torch.tensor([idx_next], device=device)), dim=1)
 
         return idx
