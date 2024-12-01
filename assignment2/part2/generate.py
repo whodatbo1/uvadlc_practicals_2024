@@ -139,4 +139,5 @@ if __name__ == "__main__":
         do_sample=args.do_sample,
         temperature=args.temperature,
         device=device,
+        top_k=None
     )

@@ -78,10 +78,17 @@ class Net(nn.Module):
 
     def forward(self, x):
 
+        print('--------------------------------')
+        print(f'x.shape: {x.shape}')
         x = F.relu(self.conv1(x))
+        print(f'x.shape: {x.shape}')
         x = F.relu(self.conv2(x))
+        print(f'x.shape: {x.shape}')
         x = F.relu(self.conv3(x))
+        print(f'x.shape: {x.shape}')
         x = F.relu(self.conv4(x))
+        print(f'x.shape: {x.shape}')
+        print('--------------------------------')
         
         if self.net_type == 'Net1':
             x = self.adap_max(x)

@@ -1,0 +1,20 @@
+valid:
+x.shape: torch.Size([200, 3, 32, 32])
+x.shape: torch.Size([200, 32, 30, 30])
+x.shape: torch.Size([200, 32, 14, 14])
+x.shape: torch.Size([200, 64, 6, 6])
+x.shape: torch.Size([200, 64, 2, 2])
+--------------------------------
+sconv:
+x.shape: torch.Size([200, 3, 32, 32])
+x.shape: torch.Size([200, 32, 32, 32])
+x.shape: torch.Size([200, 32, 16, 16])
+x.shape: torch.Size([200, 64, 8, 8])
+x.shape: torch.Size([200, 64, 4, 4])
+--------------------------------
+fconv:
+x.shape: torch.Size([200, 3, 32, 32])
+x.shape: torch.Size([200, 32, 34, 34])
+x.shape: torch.Size([200, 32, 18, 18])
+x.shape: torch.Size([200, 64, 10, 10])
+x.shape: torch.Size([200, 64, 6, 6])

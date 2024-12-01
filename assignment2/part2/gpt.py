@@ -486,8 +486,8 @@ class GPT(nn.Module):
                                 tokens, with shape (batch size, sequence length + max_new_tokens).
         """
         assert not (top_k and top_p), "You can only use one of top_k or top_p sampling"
-        device = idx.device
-        for _ in range(max_new_tokens):
+        
+        for i in range(max_new_tokens):
             # if the sequence context is growing too long we must crop it at block_size
             idx_cond = idx if idx.size(1) <= self.block_size else idx[:, -self.block_size:]
 
@@ -515,14 +515,16 @@ class GPT(nn.Module):
                     sorted_probs, sorted_indices = probs.sort(dim=-1, descending=True)
                     cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
                     mask = cumulative_probs > top_p
+                    # Handle case where all probabilities are 0
+                    mask[..., 0] = False
                     sorted_probs = sorted_probs.masked_fill(mask, 0)
                     sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
                     probs = torch.zeros_like(probs).scatter_(-1, sorted_indices, sorted_probs)
 
                 # sample from the distribution
-                # idx_next = torch.multinomial(probs, num_samples=1)
-            
+                idx_next = torch.multinomial(probs, num_samples=1)
+
             # append sampled index to the running sequence and continue
-            # idx = torch.cat((idx, torch.tensor([idx_next], device=device)), dim=1)
+            idx = torch.cat((idx, idx_next), dim=-1)
 
         return idx

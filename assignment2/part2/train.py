@@ -191,7 +191,8 @@ def train(args):
         accelerator=args.device,
         enable_progress_bar=args.progress_bar,
         gradient_clip_val=args.clip_grad_norm,
-        precision=args.precision
+        precision=args.precision,
+        max_steps=100
     )
 
     # Train the model
